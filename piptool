@@ -75,7 +75,7 @@ updates(){
         if grep -q "  LATEST: " < <("pip${1}" search "$pkg" | grep -A4 "^$pkg  "); then
             echo $pkg
         fi
-    done < <(packages "$1" "$2")
+    done < <(packages "$1" "$2") | sort
 }
 
 
