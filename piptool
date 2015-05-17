@@ -69,11 +69,12 @@ show(){
     "python${1}" -c "import pip;pkgs = [pkg.project_name for pkg in pip.get_installed_distributions() ${pycode}];pkgs.sort();[pip.main(['show', pkg]) for pkg in pkgs]"
 }
 
-
 updates(){
     while IFS= read -r pkg; do
-        if grep -q "  LATEST: " < <("pip${1}" search "$pkg" | grep -A4 "^$pkg  "); then
-            echo $pkg
+        local raw=$("pip${1}" search "$pkg")
+        local data=$(awk -v package="$pkg" '{ if (($1==package) || ($1=="INSTALLED:") || ($1=="LATEST:")) {print} else exit }' <<<"$raw")
+        if grep -q '^  LATEST: ' <<<"$data"; then
+            echo "$pkg"
         fi
     done < <(packages "$1" "$2") | sort
 }
