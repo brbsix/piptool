@@ -34,29 +34,6 @@ search(){
 }
 
 
-# search(){
-#     echo
-#     while IFS= read -r pkg; do
-#         result=$(_search "$1" "$pkg")
-#         if [[ -n $result ]]; then
-#             echo "$result"
-#             echo
-#         fi
-#     done < <(packages "$1" "$2")
-# }
-
-
-# _search(){
-#     while IFS= read -r line; do
-#         if [[ $line =~ ^$2\ \  || $line =~ ^\ \ INSTALLED || $line =~ ^\ \ LATEST ]]; then
-#             echo "$line"
-#         else
-#             break
-#         fi
-#     done < <("pip${1}" search "$2" 2>/dev/null | grep -A4 "^$2  ")
-# }
-
-
 show(){
     if [[ $2 = local ]]; then
         pycode="if '/.local/' in pkg.location"
