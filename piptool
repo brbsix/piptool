@@ -1,38 +1,10 @@
 #!/bin/bash
-
-
-_search(){
-    while IFS= read -r line; do
-        if [[ $line =~ ^$2\ \  || $line =~ ^\ \ INSTALLED || $line =~ ^\ \ LATEST ]]; then
-            echo "$line"
-        else
-            break
-        fi
-    done < <("pip${1}" search "$2" | grep -A4 "^$2  ")
-}
+#
+# Use pip in batch mode
 
 
 error(){
     echo "ERROR: $@" >&2
-}
-
-
-main(){
-    if (( $# == 0 )) || [[ $1 =~ ^(-h|--help|help)$ ]]; then
-        echo "Usage: ${0##*/} (2|3) (packages|search|show|updates) (all|local|system)"
-        exit 0
-    elif [[ ! $1 =~ ^2|3$ ]]; then
-        error "Please indicate 2 or 3 (for pip2 or pip3 respectively)"
-        exit 1
-    elif [[ ! $2 =~ ^(packages|search|show|updates)$ ]]; then
-        error "Invalid pip command"
-        exit 1
-    elif [[ -n $3 && ! $3 =~ ^(all|local|system)$ ]]; then
-        error "Please indicate local or system packages"
-        exit 1
-    fi
-
-    "$2" "$1" "$3"
 }
 
 
@@ -43,20 +15,41 @@ packages(){
         pycode="if '/.local/' not in pkg.location"
     fi
 
-    "python${1}" -c "import pip;pkgs = [pkg.project_name for pkg in pip.get_installed_distributions() ${pycode}];pkgs.sort();print('\n'.join(pkgs))"
+    "python${1}" -c "import pip;pkgs = [pkg.project_name for pkg in pip.get_installed_distributions() ${pycode}];pkgs.sort();print('\n'.join(pkgs))" 2>/dev/null
 }
 
 
 search(){
-    echo
-    while IFS= read -r pkg; do
-        result=$(_search "$1" "$pkg")
-        if [[ -n $result ]]; then
-            echo "$result"
-            echo
-        fi
+    while IFS= read -r package; do
+        (
+            results=$("pip${1}" search "$package" 2>/dev/null)
+            awk -S -v package="$package" '$0 ~ "^"package"\\s\\s" {do {print; if (getline != 1) break} while ($0 ~ "^  ")}' <<<"$results"
+        )
     done < <(packages "$1" "$2")
 }
+
+
+# search(){
+#     echo
+#     while IFS= read -r pkg; do
+#         result=$(_search "$1" "$pkg")
+#         if [[ -n $result ]]; then
+#             echo "$result"
+#             echo
+#         fi
+#     done < <(packages "$1" "$2")
+# }
+
+
+# _search(){
+#     while IFS= read -r line; do
+#         if [[ $line =~ ^$2\ \  || $line =~ ^\ \ INSTALLED || $line =~ ^\ \ LATEST ]]; then
+#             echo "$line"
+#         else
+#             break
+#         fi
+#     done < <("pip${1}" search "$2" 2>/dev/null | grep -A4 "^$2  ")
+# }
 
 
 show(){
@@ -66,18 +59,36 @@ show(){
         pycode="if '/.local/' not in pkg.location"
     fi
 
-    "python${1}" -c "import pip;pkgs = [pkg.project_name for pkg in pip.get_installed_distributions() ${pycode}];pkgs.sort();[pip.main(['show', pkg]) for pkg in pkgs]"
+    "python${1}" -c "import pip;pkgs = [pkg.project_name for pkg in pip.get_installed_distributions() ${pycode}];pkgs.sort();[pip.main(['show', pkg]) for pkg in pkgs]" 2>/dev/null
 }
+
 
 updates(){
-    while IFS= read -r pkg; do
-        local raw=$("pip${1}" search "$pkg")
-        local data=$(awk -v package="$pkg" '{ if (($1==package) || ($1=="INSTALLED:") || ($1=="LATEST:")) {print} else exit }' <<<"$raw")
-        if grep -q '^  LATEST: ' <<<"$data"; then
-            echo "$pkg"
-        fi
-    done < <(packages "$1" "$2") | sort
+    while IFS= read -r package; do
+        (
+            results=$("pip${1}" search "$package" 2>/dev/null)
+            awk -S -v package="$package" '$0 ~ "^"package"\\s\\s" {getline; while ($0 ~ "^  ") {if ($0 ~ "^  LATEST:") {print package; exit}; if (getline != 1) break}}' <<<"$results"
+        )
+    done < <(packages "$1" "$2")
 }
 
 
-main "$@"
+if (( $# == 0 )) || [[ $1 =~ ^(-h|--help|help)$ ]]; then
+    echo "Usage: ${0##*/} (2|3) (packages|search|show|updates) (all|local|system)"
+    exit 0
+elif [[ ! $1 =~ ^2|3$ ]]; then
+    error 'Please indicate 2 or 3 (for pip2 or pip3 respectively)'
+    exit 1
+elif [[ ! $2 =~ ^(packages|search|show|updates)$ ]]; then
+    error 'Invalid command'
+    exit 1
+elif [[ -n $3 && ! $3 =~ ^(all|local|system)$ ]]; then
+    error 'Please indicate local or system packages'
+    exit 1
+elif (( $# > 3 )); then
+    error 'Too many arguments'
+    exit 1
+fi
+
+
+"$2" "$1" "$3"
