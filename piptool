@@ -15,7 +15,12 @@ packages(){
         pycode="if '/.local/' not in pkg.location"
     fi
 
-    "python${1}" -c "import pip;pkgs = [pkg.project_name for pkg in pip.get_installed_distributions() ${pycode}];pkgs.sort();print('\n'.join(pkgs))" 2>/dev/null
+    "python${1}" <<-EOF 2>/dev/null
+	import pip
+	pkgs = [pkg.project_name for pkg in pip.get_installed_distributions() ${pycode}]
+	pkgs.sort()
+	print('\n'.join(pkgs))
+	EOF
 }
 
 
@@ -59,7 +64,12 @@ show(){
         pycode="if '/.local/' not in pkg.location"
     fi
 
-    "python${1}" -c "import pip;pkgs = [pkg.project_name for pkg in pip.get_installed_distributions() ${pycode}];pkgs.sort();[pip.main(['show', pkg]) for pkg in pkgs]" 2>/dev/null
+    "python${1}" <<-EOF 2>/dev/null
+	import pip
+	pkgs = [pkg.project_name for pkg in pip.get_installed_distributions() ${pycode}]
+	pkgs.sort()
+	[pip.main(['show', pkg]) for pkg in pkgs]
+	EOF
 }
 
 
