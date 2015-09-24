@@ -24,14 +24,38 @@ packages(){
 }
 
 
+# packages(){
+#     # NOTE: this is slower than the pure python implementation
+#     (
+#         if [[ $2 = local ]]; then
+#             "pip${1}" list --user
+#         elif [[ $2 = system ]]; then
+#             awk 'NR==FNR{old[$0];next}!($0 in old)' <("pip${1}" list --user) <("pip${1}" list)
+#         else
+#             "pip${1}" list
+#         fi
+#     ) 2>/dev/null | awk '{print $1}'
+# }
+
+
 search(){
+    # NOTE: double whitespace in awk regex corrects for erroneous pip results
+    #       see `pip3 search CherryPy | cat -E` (line breaks where they shouldn't be)
+
     while IFS= read -r package; do
-        (
-            results=$("pip${1}" search "$package" 2>/dev/null)
-            awk -S -v package="$package" '$0 ~ "^"package"\\s\\s" {do {print; if (getline != 1) break} while ($0 ~ "^  ")}' <<<"$results"
-        )
+        "pip${1}" search "$package" 2>/dev/null | awk -S -v package="$package" '$0 ~ "^"package"\\s\\s" {do {print; if (getline != 1) break} while ($0 ~ "^  "); printf "\n"}'
     done < <(packages "$1" "$2")
 }
+
+
+# search(){
+#     while IFS= read -r package; do
+#         (
+#             results=$("pip${1}" search "$package" 2>/dev/null)
+#             awk -S -v package="$package" '$0 ~ "^"package"\\s\\s" {do {print; if (getline != 1) break} while ($0 ~ "^  ")}' <<<"$results"
+#         )
+#     done < <(packages "$1" "$2")
+# }
 
 
 show(){
@@ -51,13 +75,36 @@ show(){
 
 
 updates(){
-    while IFS= read -r package; do
-        (
-            results=$("pip${1}" search "$package" 2>/dev/null)
-            awk -S -v package="$package" '$0 ~ "^"package"\\s\\s" {getline; while ($0 ~ "^  ") {if ($0 ~ "^  LATEST:") {print package; exit}; if (getline != 1) break}}' <<<"$results"
-        )
-    done < <(packages "$1" "$2")
+    (
+        if [[ $2 = local ]]; then
+            "pip${1}" list --outdated --pre --user
+        elif [[ $2 = system ]]; then
+            ("pip${1}" list --outdated --pre; "pip${1}" list --outdated --pre --user) | sort | uniq -u
+        else
+            "pip${1}" list --outdated --pre
+        fi
+    ) 2>/dev/null | LC_ALL=C sort
 }
+
+
+# updates(){
+#     # NOTE: double whitespace in awk regex corrects for erroneous pip results
+#     #       see `pip3 search CherryPy | cat -E` (line breaks where they shouldn't be)
+
+#     while IFS= read -r package; do
+#         "pip${1}" search "$package" | awk -S -v package="$package" '$0 ~ "^"package"\\s\\s" {getline; while ($0 ~ "^  ") {if ($0 ~ "^  LATEST:") {print package; break}; if (getline != 1) break}}'
+#     done < <(packages "$1" "$2")
+# }
+
+
+# updates(){
+#     while IFS= read -r package; do
+#         (
+#             results=$("pip${1}" search "$package" 2>/dev/null)
+#             awk -S -v package="$package" '$0 ~ "^"package"\\s\\s" {getline; while ($0 ~ "^  ") {if ($0 ~ "^  LATEST:") {print package; exit}; if (getline != 1) break}}' <<<"$results"
+#         )
+#     done < <(packages "$1" "$2")
+# }
 
 
 if (( $# == 0 )) || [[ $1 =~ ^(-h|--help|help)$ ]]; then
